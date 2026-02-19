@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Code Assistant · advanced+ share</title>
+    <!-- Chart.js (light usage) & Tailwind, Font Awesome, Inter font -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at 10% 30%, #1a1f3a, #0c0f1e);
+            min-height: 100vh;
+            color: #e1e7f0;
+        }
+        /* modern glass with depth */
+        .glass-advanced {
+            background: rgba(20, 25, 45, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(110, 130, 200, 0.15);
+            box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.02) inset;
+        }
+        .glass-panel {
+            background: rgba(18, 22, 40, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(90, 120, 220, 0.2);
+            border-radius: 24px;
+        }
+        .code-editor {
+            background: #0b0f1a;
+            border-radius: 20px;
+            border: 1px solid #2a3450;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            overflow: hidden;
+            box-shadow: 0 20px 35px -8px #00000080;
+        }
+        .code-line {
+            display: flex;
+            padding: 6px 16px;
+            border-left: 4px solid transparent;
+            transition: all 0.15s;
+            font-size: 0.9rem;
+            gap: 16px;
+            align-items: center;
+        }
+        .line-number {
+            color: #4c5a7a;
+            width: 32px;
+            text-align: right;
+            user-select: none;
+            font-size: 0.8rem;
+            font-weight: 400;
+        }
+        .code-line:hover {
+            background: #1a2335;
+            border-left-color: #5f8aff;
+        }
+        .code-line.active {
+            background: #1f2a40;
+            border-left-color: #3be0b5;
+            box-shadow: inset 0 0 0 1px #356aff30;
+        }
+        .ai-suggestion {
+            background: #1b2440e0;
+            backdrop-filter: blur(4px);
+            border-left: 5px solid #3be0b5;
+            border-radius: 16px;
+            padding: 16px;
+            margin: 16px 0;
+            border: 1px solid #3c4b6e;
+            animation: slideReveal 0.4s cubic-bezier(0.2,0.9,0.3,1.1);
+        }
+        @keyframes slideReveal {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .loading-spinner {
+            border: 3px solid #303e60;
+            border-top: 3px solid #a68eff;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            animation: spin 1s infinite linear;
+        }
+        @keyframes spin { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+        .tab-active {
+            background: #3b5ff6;
+            color: white;
+            border-radius: 30px 30px 0 0;
+            padding: 8px 18px;
+            font-weight: 500;
+        }
+        .tab-inactive {
+            background: #1e2a44;
+            color: #a5b3d9;
+            border-radius: 30px 30px 0 0;
+            padding: 8px 18px;
+        }
+        .integration-card {
+            border: 1px solid #324b6e;
+            border-radius: 28px;
+            padding: 1.5rem;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .integration-card:hover {
+            transform: translateY(-5px);
+            border-color: #617bff;
+        }
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
+            background: #36d6a5;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #36d6a5;
+            animation: pulseGlow 2s infinite;
+        }
+        @keyframes pulseGlow { 0% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.3); } 100% { opacity: 0.6; transform: scale(1); } }
+        .stat-number {
+            background: linear-gradient(145deg, #b7c9ff, #d6b0ff);
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+        /* share button specific */
+        .share-pop {
+            transition: all 0.15s;
+        }
+        .share-pop:active { transform: scale(0.94); }
+        /* intentional error style (typo reference) */
+        .define-error {
+            background: rgba(255, 100, 100, 0.1);
+            border-left: 3px solid #ff4d4d;
+        }
+        /* small fix for hidden extra */
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <!-- Header with functional share button -->
+    <header class="glass-advanced sticky top-0 z-50 border-b border-indigo-900/40">
+        <div class="container mx-auto px-6 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-robot text-4xl text-indigo-400"></i>
+                    <h1 class="text-2xl font-extrabold bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">AI Code Assistant</h1>
+                    <span class="px-3 py-0.5 bg-indigo-800/40 text-indigo-200 text-xs rounded-full border border-indigo-500">v3.0 · advanced</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <!-- SHARE BUTTON (fully functional + count) -->
+                    <button id="shareBtn" class="relative bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-2xl flex items-center gap-2 shadow-xl shadow-indigo-900/40 share-pop">
+                        <i class="fas fa-share-alt"></i> Share
+                        <span id="shareCount" class="absolute -top-2 -right-2 bg-rose-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center border-2 border-indigo-900">47</span>
+                    </button>
+                    
+                    <div class="relative">
+                        <i class="fas fa-bell text-xl text-gray-300"></i>
+                        <span class="absolute -top-2 -right-2 bg-rose-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">5</span>
+                    </div>
+                    <div class="flex items-center bg-white/5 p-1 pl-2 rounded-full border border-white/20">
+                        <img src="https://picsum.photos/seed/advuser/40/40.jpg" alt="user" class="w-9 h-9 rounded-full border-2 border-indigo-400">
+                        <span class="text-gray-200 mx-2">Alex Rivera</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-6">
+        <!-- Stats with extra pulse -->
+        <div class="glass-panel p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                <div class="text-center md:border-r border-indigo-800/60"><span class="stat-number text-4xl font-bold">2,847</span><div class="text-gray-400 text-sm flex items-center justify-center gap-1"><span class="pulse-dot"></span> Lines of Code</div></div>
+                <div class="text-center md:border-r border-indigo-800/60"><span class="stat-number text-4xl font-bold">94%</span><div class="text-gray-400 text-sm">Code Quality</div></div>
+                <div class="text-center md:border-r border-indigo-800/60"><span class="stat-number text-4xl font-bold">156</span><div class="text-gray-400 text-sm">Suggestions</div></div>
+                <div class="text-center md:border-r border-indigo-800/60"><span class="stat-number text-4xl font-bold">2.3s</span><div class="text-gray-400 text-sm">Avg. Response</div></div>
+                <div class="text-center"><span class="stat-number text-4xl font-bold">98%</span><div class="text-gray-400 text-sm">Happiness <i class="fas fa-smile text-yellow-400 ml-1"></i></div></div>
+            </div>
+        </div>
+
+        <!-- Editor row + AI panel -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Code Editor (super advanced) -->
+            <div class="lg:col-span-2">
+                <div class="glass-panel p-5">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex space-x-1">
+                            <button class="tab-active"><i class="fas fa-code mr-2"></i>main.py</button>
+                            <button class="tab-inactive hover:bg-indigo-900/30 transition">utils.py</button>
+                            <button class="tab-inactive hover:bg-indigo-900/30 transition">config.py</button>
+                        </div>
+                        <div class="flex gap-3 text-indigo-300">
+                            <button class="hover:text-white"><i class="fas fa-save"></i></button>
+                            <button class="hover:text-white"><i class="fas fa-download"></i></button>
+                            <button class="hover:text-white"><i class="fas fa-upload"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- code with line numbers & advanced highlights -->
+                    <div class="code-editor">
+                        <div class="code-line active"><span class="line-number">1</span><span class="text-blue-300">import numpy as np</span></div>
+                        <div class="code-line"><span class="line-number">2</span><span class="text-blue-300">import pandas as pd</span></div>
+                        <div class="code-line"><span class="line-number">3</span><span>from sklearn.model_selection import train_test_split</span></div>
+                        <div class="code-line"><span class="line-number">4</span><span>from sklearn.ensemble import RandomForestClassifier</span></div>
+                        <div class="code-line"><span class="line-number">5</span><span>import matplotlib.pyplot as plt</span></div>
+                        <div class="code-line"><span class="line-number">6</span><span></span></div>
+                        <div class="code-line"><span class="line-number">7</span><span class="text-emerald-400"># Load dataset</span></div>
+                        <div class="code-line"><span class="line-number">8</span><span>data = pd.read_csv('data.csv')</span></div>
+                        <div class="code-line"><span class="line-number">9</span><span></span></div>
+                        <!-- THIS LINE HAS AN INTENTIONAL "DEFINE A ERROR" COMMENT (typo) AS REQUESTED -->
+                        <div class="code-line define-error"><span class="line-number">10</span><span class="text-emerald-400"># define a error: missing file check</span></div>
+                        <div class="code-line"><span class="line-number">11</span><span>X = data.drop('target', axis=1)</span></div>
+                        <div class="code-line"><span class="line-number">12</span><span>y = data['target']</span></div>
+                        <div class="code-line"><span class="line-number">13</span><span></span></div>
+                        <div class="code-line"><span class="line-number">14</span><span class="text-emerald-400"># Split data</span></div>
+                        <div class="code-line"><span class="line-number">15</span><span>X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)</span></div>
+                        <div class="code-line"><span class="line-number">16</span><span></span></div>
+                        <div class="code-line"><span class="line-number">17</span><span class="text-emerald-400"># Train model</span></div>
+                        <div class="code-line"><span class="line-number">18</span><span>model = RandomForestClassifier(n_estimators=100, random_state=42)</span></div>
+                        <div class="code-line"><span class="line-number">19</span><span>model.fit(X_train, y_train)</span></div>
+                        <div class="code-line"><span class="line-number">20</span><span></span></div>
+                        <div class="code-line"><span class="line-number">21</span><span class="text-emerald-400"># Evaluate</span></div>
+                        <div class="code-line"><span class="line-number">22</span><span>accuracy = model.score(X_test, y_test)</span></div>
+                        <div class="code-line"><span class="line-number">23</span><span>print(<span class="text-lime-300">f"Model accuracy: {accuracy:.2f}"</span>)</span></div>
+                    </div>
+                    <!-- subtle note: error defined in line 10 comment -->
+                </div>
+            </div>
+
+            <!-- AI Assistant + sanime san enhancements -->
+            <div class="lg:col-span-1">
+                <div class="glass-panel p-5 h-full">
+                    <h3 class="text-lg font-semibold flex items-center gap-2 mb-4"><i class="fas fa-microchip text-indigo-400"></i> AI Assistant <span class="text-xs bg-indigo-900/60 px-2 py-0.5 rounded-full border border-indigo-600">deepseek-r1</span></h3>
+                    
+                    <div class="bg-indigo-950/40 border border-indigo-800/40 rounded-xl p-4 mb-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-indigo-200">Context analysis</span>
+                            <div class="flex items-center gap-2"><div class="loading-spinner"></div><span class="text-xs text-emerald-300">active</span></div>
+                        </div>
+                        <div class="w-full bg-gray-700 h-2 rounded-full mt-2 overflow-hidden">
+                            <div id="ai-progress-bar" class="bg-gradient-to-r from-indigo-400 to-purple-400 h-2 rounded-full" style="width:70%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Suggestions with advanced badges -->
+                    <div class="space-y-3 mb-5">
+                        <div class="ai-suggestion">
+                            <div class="flex justify-between"><span class="text-xs bg-emerald-900/70 text-emerald-300 px-3 py-1 rounded-full border border-emerald-700"><i class="fas fa-bolt mr-1"></i>Optimization</span><button class="text-gray-400 hover:text-white"><i class="fas fa-times"></i></button></div>
+                            <p class="text-sm my-2">Use cross-validation (StratifiedKFold) for robust metrics.</p>
+                            <button class="text-indigo-300 text-sm flex items-center gap-1 apply-btn"><i class="fas fa-code"></i>Apply</button>
+                        </div>
+                        <div class="ai-suggestion">
+                            <div class="flex justify-between"><span class="text-xs bg-sky-900/70 text-sky-300 px-3 py-1 rounded-full border border-sky-700"><i class="fas fa-pencil-alt mr-1"></i>Best Practice</span><button class="text-gray-400 hover:text-white"><i class="fas fa-times"></i></button></div>
+                            <p class="text-sm my-2">Add type hints & docstring for maintainability.</p>
+                            <button class="text-indigo-300 text-sm flex items-center gap-1 apply-btn"><i class="fas fa-code"></i>Apply</button>
+                        </div>
+                        <!-- Bonus hidden suggestion (sanime san extra) -->
+                        <div id="extraSuggestion" class="ai-suggestion hidden">
+                            <div class="flex justify-between"><span class="text-xs bg-amber-900/70 text-amber-300 px-3 py-1 rounded-full border border-amber-700"><i class="fas fa-rocket mr-1"></i>Performance</span><button class="text-gray-400 hover:text-white"><i class="fas fa-times"></i></button></div>
+                            <p class="text-sm my-2">Use joblib to cache preprocessing pipeline.</p>
+                            <button class="text-indigo-300 text-sm apply-btn"><i class="fas fa-code"></i>Apply</button>
+                        </div>
+                    </div>
+
+                    <!-- Quick actions grid -->
+                    <h4 class="text-sm font-semibold mb-2 text-indigo-200">⚡ Quick actions</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button class="bg-indigo-900/40 border border-indigo-700/60 p-3 rounded-xl text-sm hover:bg-indigo-800/60"><i class="fas fa-magic mr-1"></i>Auto-Complete</button>
+                        <button class="bg-rose-900/40 border border-rose-700/60 p-3 rounded-xl text-sm hover:bg-rose-800/60"><i class="fas fa-bug mr-1"></i>Find Bugs</button>
+                        <button class="bg-emerald-900/40 border border-emerald-700/60 p-3 rounded-xl text-sm hover:bg-emerald-800/60"><i class="fas fa-chart-line mr-1"></i>Optimize</button>
+                        <button class="bg-amber-900/40 border border-amber-700/60 p-3 rounded-xl text-sm hover:bg-amber-800/60"><i class="fas fa-comments mr-1"></i>Explain</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Code review row -->
+        <div class="glass-panel p-6 mt-6">
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2"><i class="fas fa-clipboard-check text-indigo-400"></i> DeepCode review</h3>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="space-y-3">
+                    <h4 class="text-sm font-medium text-gray-300">🔍 Issues</h4>
+                    <div class="flex items-center bg-rose-950/30 border border-rose-800/40 p-3 rounded-xl"><i class="fas fa-times-circle text-rose-400 mr-3"></i><div><div class="text-sm">Unused import</div><div class="text-xs text-gray-400">matplotlib.pyplot</div></div></div>
+                    <div class="flex items-center bg-amber-950/30 border border-amber-800/40 p-3 rounded-xl"><i class="fas fa-exclamation-triangle text-amber-400 mr-3"></i><div><div class="text-sm">Magic number 42</div><div class="text-xs text-gray-400">random_state hardcoded</div></div></div>
+                </div>
+                <div>
+                    <h4 class="text-sm font-medium text-gray-300 mb-3">📊 Metrics</h4>
+                    <div><div class="flex justify-between text-sm"><span>Complexity</span><span>Medium</span></div><div class="bg-gray-700 h-2 rounded-full mt-1"><div class="bg-amber-500 h-2 rounded-full w-3/5"></div></div></div>
+                    <div class="mt-3"><div class="flex justify-between text-sm"><span>Readability</span><span>Good</span></div><div class="bg-gray-700 h-2 rounded-full mt-1"><div class="bg-emerald-500 h-2 rounded-full w-10/12"></div></div></div>
+                </div>
+                <div>
+                    <h4 class="text-sm font-medium text-gray-300 mb-3">🧠 AI insight</h4>
+                    <div class="bg-indigo-950/30 p-4 rounded-xl border border-indigo-800/40">
+                        <p class="text-sm text-gray-200 flex items-center gap-2"><i class="fas fa-brain text-indigo-400"></i> Consider caching with joblib for faster re-runs.</p>
+                        <div class="flex gap-2 mt-3"><button class="bg-indigo-600 px-3 py-1.5 text-xs rounded-lg">Auto-Fix</button><button class="bg-gray-700 px-3 py-1.5 text-xs rounded-lg">Details</button></div>
+                    </div>
+                </div>
+            </div>
+            <!-- subtle extra message about the error -->
+            <div class="text-xs text-gray-500 mt-4 border-t border-indigo-800/30 pt-2 flex items-center gap-2">
+                <i class="fas fa-info-circle text-indigo-400"></i> Line 10 comment includes "define a error" (intentional demo)
+            </div>
+        </div>
+
+        <!-- Integration options (same vibe) -->
+        <div class="glass-panel p-6 mt-6">
+            <h3 class="text-lg font-semibold mb-4"><i class="fas fa-plug text-indigo-400 mr-2"></i>Integrations</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div class="integration-card"><div class="flex items-center gap-3"><i class="fab fa-vscode text-4xl text-blue-400"></i><div><h4 class="font-semibold">VS Code</h4><p class="text-sm text-gray-400">Extension</p></div></div><button class="w-full mt-4 bg-indigo-600/80 py-2.5 rounded-xl">Install</button></div>
+                <div class="integration-card"><div class="flex items-center gap-3"><i class="fas fa-globe text-4xl text-purple-400"></i><div><h4 class="font-semibold">Web IDE</h4><p class="text-sm text-gray-400">Instant</p></div></div><button class="w-full mt-4 bg-purple-600/80 py-2.5 rounded-xl">Launch</button></div>
+                <div class="integration-card"><div class="flex items-center gap-3"><i class="fab fa-github text-4xl text-gray-300"></i><div><h4 class="font-semibold">GitHub</h4><p class="text-sm text-gray-400">Copilot</p></div></div><button class="w-full mt-4 bg-gray-700 py-2.5 rounded-xl">Connect</button></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- SHARE BUTTON SCRIPT (functional + increments) & GSAP animations -->
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    // ===============================
+    // SHARE BUTTON (REAL + FALLBACK)
+    // ===============================
+    const shareBtn = document.getElementById('shareBtn');
+    const shareSpan = document.getElementById('shareCount');
+    let shareCount = 47;
+
+    function showToast(text) {
+        const fakeNotif = document.createElement('div');
+        fakeNotif.innerText = text;
+        fakeNotif.style.cssText =
+            'position:fixed; bottom:20px; right:20px; background:#2d3b6b; color:white; padding:10px 20px; border-radius:40px; border-left:5px solid #3be0b5; z-index:9999; font-size:14px; box-shadow:0 10px 25px black;';
+        document.body.appendChild(fakeNotif);
+
+        gsap.to(fakeNotif, { opacity: 1, y: -10, duration: 0.4 });
+        setTimeout(() => {
+            gsap.to(fakeNotif, {
+                opacity: 0,
+                y: 20,
+                duration: 0.5,
+                onComplete: () => fakeNotif.remove()
+            });
+        }, 2000);
+    }
+
+    shareBtn.addEventListener('click', async function(e) {
+        e.preventDefault();
+
+        // increment counter
+        shareCount += 1;
+        shareSpan.textContent = shareCount;
+
+        // animation
+        gsap.timeline()
+            .to(shareBtn, { scale: 1.2, duration: 0.15, ease: 'backOut' })
+            .to(shareBtn, { scale: 1, duration: 0.2, ease: 'elastic.out' });
+
+        gsap.fromTo(
+            shareSpan,
+            { scale: 2, opacity: 0.7 },
+            { scale: 1, opacity: 1, duration: 0.3 }
+        );
+
+        // REAL SHARE
+        const shareData = {
+            title: 'AI Code Assistant',
+            text: 'Check out this AI Code Assistant!',
+            url: window.location.href
+        };
+
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+                showToast('✨ Shared successfully!');
+            } else {
+                await navigator.clipboard.writeText(window.location.href);
+                showToast('🔗 Link copied!');
+            }
+        } catch (err) {
+            showToast('❌ Share cancelled');
+        }
+    });
+
+    // ===============================
+    // REMOVE SUGGESTION (X BUTTON)
+    // ===============================
+    document.querySelectorAll('.ai-suggestion .fa-times')
+        .forEach(btn => {
+            btn.addEventListener('click', function() {
+                const card = this.closest('.ai-suggestion');
+                gsap.to(card, {
+                    opacity: 0,
+                    x: 40,
+                    duration: 0.3,
+                    onComplete: () => card.remove()
+                });
+            });
+        });
+
+    // ===============================
+    // APPLY BUTTON DEMO (using class apply-btn to be more specific)
+    // ===============================
+    document.querySelectorAll('.apply-btn')
+        .forEach(btn => {
+            btn.addEventListener('click', function() {
+                this.innerHTML = '<i class="fas fa-check"></i> Applied';
+                this.classList.add('text-emerald-400');
+            });
+        });
+
+    // ===============================
+    // QUICK ACTIONS DEMO
+    // ===============================
+    document.querySelectorAll('.grid button')
+        .forEach(btn => {
+            btn.addEventListener('click', () => {
+                showToast('⚡ ' + btn.innerText.trim());
+            });
+        });
+
+    // ===============================
+    // CODE LINE ACTIVE (with highlighting)
+    // ===============================
+    const lines = document.querySelectorAll('.code-line');
+    lines.forEach(line => {
+        line.addEventListener('click', function() {
+            lines.forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+            gsap.fromTo(
+                this,
+                { backgroundColor: '#2b3755' },
+                { backgroundColor: '#1f2a40', duration: 0.3 }
+            );
+        });
+    });
+
+    // ===============================
+    // ENTRANCE ANIMATION
+    // ===============================
+    const tl = gsap.timeline({
+        defaults: { ease: 'power3.out', duration: 0.7 }
+    });
+
+    tl.from('header', { y: -30, opacity: 0 })
+      .from('.code-editor .code-line', {
+          opacity: 0,
+          x: -8,
+          stagger: 0.02,
+          duration: 0.5
+      }, '-=0.3')
+      .from('.ai-suggestion', {
+          opacity: 0,
+          scale: 0.9,
+          stagger: 0.1
+      }, '-=0.2')
+      .from('.integration-card', {
+          opacity: 0,
+          y: 30,
+          stagger: 0.1
+      }, '-=0.2');
+
+    // ===============================
+    // AI PROGRESS ANIMATION
+    // ===============================
+    gsap.to('#ai-progress-bar', {
+        width: '100%',
+        duration: 8,
+        yoyo: true,
+        repeat: -1,
+        ease: 'sine.inOut'
+    });
+
+    // ===============================
+    // EXTRA SUGGESTION SHOW (like sanime extra)
+    // ===============================
+    const extra = document.getElementById('extraSuggestion');
+    setTimeout(() => {
+        extra.classList.remove('hidden');
+        gsap.from(extra, {
+            opacity: 0,
+            x: 30,
+            duration: 0.6,
+            ease: 'backOut'
+        });
+    }, 3800);
+
+    // ===============================
+    // ADDITIONAL ERROR VISUAL : highlight line with define-error on click (just for effect)
+    // ===============================
+    const errorLine = document.querySelector('.define-error');
+    if(errorLine) {
+        errorLine.addEventListener('click', function() {
+            gsap.to(this, {backgroundColor: '#4a1e2c', duration: 0.2, yoyo: true, repeat: 1});
+        });
+    }
+
+});
+</script>
+
+    <!-- tiny style for extra smoothness -->
+    <style>
+        #shareCount { transition: background 0.2s; }
+        .glass-panel, .glass-advanced { border-radius: 28px; }
+        button { cursor: pointer; }
+        .code-line { cursor: pointer; }
+    </style>
+</body>
+</html>
